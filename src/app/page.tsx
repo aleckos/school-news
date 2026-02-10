@@ -1,6 +1,9 @@
 import { ARTICLES, NEWSPAPER_NAME, SCHOOL_NAME, SCHOOL_SUBTITLE } from "@/constants";
+import { getArticles, getSettings } from "@/sanity/lib/queries";
 
-export default function Home() {
+export const revalidate = 60; // Ανανέωση δεδομένων κάθε 60 δευτερόλεπτα
+
+export default async function Home() {
   const today = new Intl.DateTimeFormat('el-GR', {
     weekday: 'long',
     year: 'numeric',
@@ -8,8 +11,19 @@ export default function Home() {
     day: 'numeric',
   }).format(new Date());
 
-  const currentIssue = 1;
-  const issueArticles = ARTICLES.filter(a => a.issue === currentIssue);
+  // Φέρνουμε τις ρυθμίσεις από το Sanity
+  const settings = await getSettings();
+  const currentIssue = settings?.currentIssue || 1;
+  const newspaperName = settings?.title || NEWSPAPER_NAME;
+  const schoolName = settings?.schoolName || SCHOOL_NAME;
+
+  // Φέρνουμε τα άρθρα από το Sanity
+  const sanityArticles = await getArticles(currentIssue);
+  
+  // Αν δεν υπάρχουν άρθρα στο Sanity ακόμα, δείχνουμε τα στατικά για να μην είναι άδεια η σελίδα
+  const issueArticles = sanityArticles.length > 0 
+    ? sanityArticles 
+    : ARTICLES.filter(a => a.issue === currentIssue);
 
   // Mapping χρωμάτων ανά κατηγορία
   const categoryColors: { [key: string]: string } = {
@@ -24,13 +38,13 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#fffdf5] text-stone-900 font-serif">
-      <div className="h-4 bg-gradient-to-r from-blue-400 via-yellow-400 to-red-400 w-full" />
+      <div className="h-4 bg-gradient-to-r from-blue-400 via-emerald-400 to-red-400 w-full" />
       
       {/* Header */}
       <header className="border-b-4 border-stone-800 py-6 px-4 text-center relative">
         <div className="max-w-6xl mx-auto">
           <div className="text-sm font-sans font-black text-blue-700 uppercase mb-2 tracking-widest">
-            {SCHOOL_NAME}
+            {schoolName}
           </div>
           
           <div className="flex justify-between items-end border-b-2 border-stone-400 pb-2 mb-4 text-xs font-sans uppercase tracking-widest font-bold text-stone-500">
@@ -40,7 +54,7 @@ export default function Home() {
           </div>
           
           <h1 className="text-5xl md:text-8xl font-black tracking-tighter mb-2 text-stone-900 drop-shadow-sm uppercase">
-            {NEWSPAPER_NAME}
+            {newspaperName}
           </h1>
           
           <div className="text-lg font-sans font-bold text-stone-600 italic">
@@ -55,14 +69,14 @@ export default function Home() {
           
           {/* Articles Column */}
           <div className="md:col-span-8 space-y-16">
-            {issueArticles.map((article, index) => {
+            {issueArticles.map((article: any, index: number) => {
               const categoryColor = categoryColors[article.category] || categoryColors["DEFAULT"];
               const textColor = categoryColor.replace('bg-', 'text-');
               
               // Highlight Layout
               if (article.layout === 'highlight') {
                 return (
-                  <article key={article.id} className={`${index !== 0 ? 'border-t-2 border-stone-200 pt-16' : ''} bg-white p-8 rounded-3xl border-l-8 ${categoryColor.replace('bg-', 'border-')} shadow-sm`}>
+                  <article key={article._id || article.id} className={`${index !== 0 ? 'border-t-2 border-stone-200 pt-16' : ''} bg-white p-8 rounded-3xl border-l-8 ${categoryColor.replace('bg-', 'border-')} shadow-sm`}>
                     <div className="flex items-center gap-3 mb-6">
                       <span className={`${categoryColor} px-4 py-1.5 text-sm font-sans font-black text-white rounded-full uppercase tracking-tighter`}>
                         ★ {article.category}
@@ -73,7 +87,7 @@ export default function Home() {
                     </h2>
                     <div className="prose prose-stone max-w-none mb-8">
                       <div className="text-2xl leading-relaxed text-stone-800 italic font-medium">
-                        {article.content.map((p, i) => (
+                        {article.content.map((p: string, i: number) => (
                           <p key={i} className="mb-4">{p}</p>
                         ))}
                       </div>
@@ -90,7 +104,7 @@ export default function Home() {
               // Minimal Layout
               if (article.layout === 'minimal') {
                 return (
-                  <article key={article.id} className={`${index !== 0 ? 'border-t-2 border-stone-200 pt-16' : ''}`}>
+                  <article key={article._id || article.id} className={`${index !== 0 ? 'border-t-2 border-stone-200 pt-16' : ''}`}>
                     <div className="flex items-center gap-2 mb-2 text-xs font-sans font-bold uppercase tracking-widest text-stone-400">
                       <span className={textColor}>{article.category}</span>
                       <span>/</span>
@@ -111,7 +125,7 @@ export default function Home() {
 
               // Default Layout (Classic Newspaper)
               return (
-                <article key={article.id} className={`${index !== 0 ? 'border-t-2 border-stone-200 pt-16' : ''}`}>
+                <article key={article._id || article.id} className={`${index !== 0 ? 'border-t-2 border-stone-200 pt-16' : ''}`}>
                   <div className="flex items-center gap-3 mb-4">
                     <span className={`${categoryColor} px-3 py-1 text-xs font-sans font-black text-white rounded-md shadow-sm uppercase`}>
                       {article.category}
@@ -133,7 +147,7 @@ export default function Home() {
 
                   <div className="prose prose-stone max-w-none">
                     <div className="columns-1 md:columns-2 gap-10 text-xl leading-relaxed text-justify text-stone-800">
-                      {article.content.map((p, i) => (
+                      {article.content.map((p: string, i: number) => (
                         <p key={i} className={`mb-6 ${i === 0 ? `first-letter:text-6xl first-letter:font-black ${textColor} first-letter:mr-3 first-letter:float-left` : ''}`}>
                           {p}
                         </p>
@@ -152,8 +166,8 @@ export default function Home() {
                 📣 Πρόσφατα Άρθρα
               </h3>
               <ul className="space-y-4 font-sans text-sm font-bold text-stone-700">
-                {issueArticles.slice(0, 5).map((art) => (
-                  <li key={art.id} className="flex gap-3 items-start group cursor-pointer hover:text-blue-600 transition-colors">
+                {issueArticles.slice(0, 5).map((art: any) => (
+                  <li key={art._id || art.id} className="flex gap-3 items-start group cursor-pointer hover:text-blue-600 transition-colors">
                     <span className="text-blue-600">★</span>
                     <span>{art.title}</span>
                   </li>
@@ -174,8 +188,8 @@ export default function Home() {
       {/* Footer */}
       <footer className="bg-stone-900 text-stone-300 py-16 px-4 mt-20 border-t-8 border-blue-600">
         <div className="max-w-6xl mx-auto text-center">
-          <h2 className="text-3xl font-black text-white tracking-tighter uppercase mb-2">{NEWSPAPER_NAME}</h2>
-          <p className="text-sm text-blue-400 font-sans font-black uppercase tracking-widest">{SCHOOL_NAME}</p>
+          <h2 className="text-3xl font-black text-white tracking-tighter uppercase mb-2">{newspaperName}</h2>
+          <p className="text-sm text-blue-400 font-sans font-black uppercase tracking-widest">{schoolName}</p>
           <div className="mt-8 flex justify-center gap-4 text-2xl opacity-50">
             <span>📚</span><span>🎭</span><span>🎨</span><span>⚽</span>
           </div>
