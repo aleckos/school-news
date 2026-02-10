@@ -1,31 +1,40 @@
 import { ARTICLES, NEWSPAPER_NAME, SCHOOL_NAME, SCHOOL_SUBTITLE } from "@/constants";
 import { getArticles, getSettings } from "@/sanity/lib/queries";
+import Image from "next/image";
+import { urlFor } from "@/sanity/lib/image";
 
-export const revalidate = 60; // Ανανέωση δεδομένων κάθε 60 δευτερόλεπτα
+export const revalidate = 60;
 
 export default async function Home() {
-  const today = new Intl.DateTimeFormat('el-GR', {
+  const settings = await getSettings();
+  
+  const today = settings?.issueDate || new Intl.DateTimeFormat('el-GR', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric',
   }).format(new Date());
 
-  // Φέρνουμε τις ρυθμίσεις από το Sanity
-  const settings = await getSettings();
   const currentIssue = settings?.currentIssue || 1;
   const newspaperName = settings?.title || NEWSPAPER_NAME;
   const schoolName = settings?.schoolName || SCHOOL_NAME;
+  const theme = settings?.theme || 'playful';
 
-  // Φέρνουμε τα άρθρα από το Sanity
   const sanityArticles = await getArticles(currentIssue);
-  
-  // Αν δεν υπάρχουν άρθρα στο Sanity ακόμα, δείχνουμε τα στατικά για να μην είναι άδεια η σελίδα
   const issueArticles = sanityArticles.length > 0 
     ? sanityArticles 
     : ARTICLES.filter(a => a.issue === currentIssue);
 
-  // Mapping χρωμάτων ανά κατηγορία
+  // Theme Config
+  const themes: { [key: string]: { bg: string, accent: string, border: string } } = {
+    playful: { bg: "bg-[#fffdf5]", accent: "from-blue-400 via-emerald-400 to-red-400", border: "border-blue-600" },
+    classic: { bg: "bg-white", accent: "from-stone-800 via-stone-500 to-stone-800", border: "border-stone-800" },
+    modern: { bg: "bg-slate-50", accent: "from-indigo-500 via-purple-500 to-pink-500", border: "border-indigo-600" },
+    dark: { bg: "bg-stone-900 text-stone-100", accent: "from-orange-500 via-red-500 to-purple-500", border: "border-orange-500" }
+  };
+
+  const activeTheme = themes[theme] || themes.playful;
+
   const categoryColors: { [key: string]: string } = {
     "ΠΟΛΙΤΙΣΜΟΣ": "bg-purple-600",
     "ΓΕΩΓΡΑΦΙΑ": "bg-green-600",
@@ -37,13 +46,13 @@ export default async function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-[#fffdf5] text-stone-900 font-serif">
-      <div className="h-4 bg-gradient-to-r from-blue-400 via-emerald-400 to-red-400 w-full" />
+    <div className={`min-h-screen ${activeTheme.bg} transition-colors duration-500 font-serif`}>
+      <div className={`h-4 bg-gradient-to-r ${activeTheme.accent} w-full`} />
       
       {/* Header */}
-      <header className="border-b-4 border-stone-800 py-6 px-4 text-center relative">
+      <header className={`border-b-4 ${theme === 'classic' ? 'border-double' : ''} border-stone-800 py-6 px-4 text-center relative`}>
         <div className="max-w-6xl mx-auto">
-          <div className="text-sm font-sans font-black text-blue-700 uppercase mb-2 tracking-widest">
+          <div className={`text-sm font-sans font-black ${theme === 'dark' ? 'text-orange-400' : 'text-blue-700'} uppercase mb-2 tracking-widest`}>
             {schoolName}
           </div>
           
@@ -53,7 +62,7 @@ export default async function Home() {
             <span>ΠΕΙΡΑΙΑΣ</span>
           </div>
           
-          <h1 className="text-5xl md:text-8xl font-black tracking-tighter mb-2 text-stone-900 drop-shadow-sm uppercase">
+          <h1 className="text-5xl md:text-8xl font-black tracking-tighter mb-2 drop-shadow-sm uppercase">
             {newspaperName}
           </h1>
           
@@ -73,88 +82,93 @@ export default async function Home() {
               const categoryColor = categoryColors[article.category] || categoryColors["DEFAULT"];
               const textColor = categoryColor.replace('bg-', 'text-');
               
-              // Highlight Layout
-              if (article.layout === 'highlight') {
-                return (
-                  <article key={article._id || article.id} className={`${index !== 0 ? 'border-t-2 border-stone-200 pt-16' : ''} bg-white p-8 rounded-3xl border-l-8 ${categoryColor.replace('bg-', 'border-')} shadow-sm`}>
-                    <div className="flex items-center gap-3 mb-6">
-                      <span className={`${categoryColor} px-4 py-1.5 text-sm font-sans font-black text-white rounded-full uppercase tracking-tighter`}>
-                        ★ {article.category}
-                      </span>
-                    </div>
-                    <h2 className="text-5xl md:text-7xl font-black leading-tight mb-8 text-stone-900 tracking-tight">
-                      {article.title}
-                    </h2>
-                    <div className="prose prose-stone max-w-none mb-8">
-                      <div className="text-2xl leading-relaxed text-stone-800 italic font-medium">
-                        {article.content.map((p: string, i: number) => (
-                          <p key={i} className="mb-4">{p}</p>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm font-sans font-bold text-stone-400 uppercase">
-                      <span>Από {article.author}</span>
-                      <span>•</span>
-                      <span>{article.date}</span>
-                    </div>
-                  </article>
-                );
-              }
-
-              // Minimal Layout
-              if (article.layout === 'minimal') {
-                return (
-                  <article key={article._id || article.id} className={`${index !== 0 ? 'border-t-2 border-stone-200 pt-16' : ''}`}>
-                    <div className="flex items-center gap-2 mb-2 text-xs font-sans font-bold uppercase tracking-widest text-stone-400">
-                      <span className={textColor}>{article.category}</span>
-                      <span>/</span>
-                      <span>{article.date}</span>
-                    </div>
-                    <h2 className="text-3xl font-bold mb-4 text-stone-900 border-b border-stone-100 pb-2">
-                      {article.title}
-                    </h2>
-                    <div className="text-lg leading-snug text-stone-600 font-sans">
-                      {article.content.join(' ')}
-                    </div>
-                    <div className="mt-4 text-xs font-sans font-black text-stone-300 uppercase tracking-tighter italic">
-                      Συντάκτης: {article.author}
-                    </div>
-                  </article>
-                );
-              }
-
-              // Default Layout (Classic Newspaper)
               return (
-                <article key={article._id || article.id} className={`${index !== 0 ? 'border-t-2 border-stone-200 pt-16' : ''}`}>
-                  <div className="flex items-center gap-3 mb-4">
-                    <span className={`${categoryColor} px-3 py-1 text-xs font-sans font-black text-white rounded-md shadow-sm uppercase`}>
-                      {article.category}
-                    </span>
-                    <span className="text-sm font-sans text-stone-500 font-bold uppercase tracking-wider">
-                      ΤΑΞΗ {article.grade}
-                    </span>
-                  </div>
-                  
-                  <h2 className="text-4xl md:text-6xl font-bold leading-tight mb-6 text-stone-900">
-                    {article.title}
-                  </h2>
-                  
-                  <div className="flex items-center gap-4 mb-8 text-sm font-sans font-bold text-stone-600 bg-stone-100 w-fit px-4 py-2 rounded-lg border border-stone-200">
-                    <span className="flex items-center gap-1">✍️ {article.author}</span>
-                    <span className="text-stone-300">|</span>
-                    <span className="flex items-center gap-1">📅 {article.date}</span>
-                  </div>
-
-                  <div className="prose prose-stone max-w-none">
-                    <div className="columns-1 md:columns-2 gap-10 text-xl leading-relaxed text-justify text-stone-800">
-                      {article.content.map((p: string, i: number) => (
-                        <p key={i} className={`mb-6 ${i === 0 ? `first-letter:text-6xl first-letter:font-black ${textColor} first-letter:mr-3 first-letter:float-left` : ''}`}>
-                          {p}
-                        </p>
-                      ))}
+                <div key={article._id || article.id}>
+                  {/* Article Image - Αν υπάρχει */}
+                  {article.image && (
+                    <div className="mb-6 relative h-[400px] w-full overflow-hidden rounded-xl shadow-lg border-4 border-white">
+                      <Image 
+                        src={urlFor(article.image).url()} 
+                        alt={article.title}
+                        fill
+                        className="object-cover transition-transform hover:scale-105 duration-500"
+                      />
                     </div>
-                  </div>
-                </article>
+                  )}
+
+                  {article.layout === 'highlight' ? (
+                    <article className={`${index !== 0 ? 'pt-4' : ''} bg-white p-8 rounded-3xl border-l-8 ${categoryColor.replace('bg-', 'border-')} shadow-sm text-stone-900`}>
+                      <div className="flex items-center gap-3 mb-6">
+                        <span className={`${categoryColor} px-4 py-1.5 text-sm font-sans font-black text-white rounded-full uppercase tracking-tighter`}>
+                          ★ {article.category}
+                        </span>
+                      </div>
+                      <h2 className="text-5xl md:text-7xl font-black leading-tight mb-8 tracking-tight">
+                        {article.title}
+                      </h2>
+                      <div className="prose prose-stone max-w-none mb-8">
+                        <div className="text-2xl leading-relaxed text-stone-800 italic font-medium">
+                          {article.content.map((p: string, i: number) => (
+                            <p key={i} className="mb-4">{p}</p>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm font-sans font-bold text-stone-400 uppercase">
+                        <span>Από {article.author}</span>
+                        <span>•</span>
+                        <span>{article.date}</span>
+                      </div>
+                    </article>
+                  ) : article.layout === 'minimal' ? (
+                    <article className="text-current">
+                      <div className="flex items-center gap-2 mb-2 text-xs font-sans font-bold uppercase tracking-widest text-stone-400">
+                        <span className={textColor}>{article.category}</span>
+                        <span>/</span>
+                        <span>{article.date}</span>
+                      </div>
+                      <h2 className="text-3xl font-bold mb-4 border-b border-stone-200 pb-2">
+                        {article.title}
+                      </h2>
+                      <div className="text-lg leading-snug font-sans opacity-90">
+                        {article.content.join(' ')}
+                      </div>
+                      <div className="mt-4 text-xs font-sans font-black opacity-40 uppercase tracking-tighter italic">
+                        Συντάκτης: {article.author}
+                      </div>
+                    </article>
+                  ) : (
+                    <article className="text-current">
+                      <div className="flex items-center gap-3 mb-4">
+                        <span className={`${categoryColor} px-3 py-1 text-xs font-sans font-black text-white rounded-md shadow-sm uppercase`}>
+                          {article.category}
+                        </span>
+                        <span className="text-sm font-sans opacity-60 font-bold uppercase tracking-wider">
+                          ΤΑΞΗ {article.grade}
+                        </span>
+                      </div>
+                      
+                      <h2 className="text-4xl md:text-6xl font-bold leading-tight mb-6">
+                        {article.title}
+                      </h2>
+                      
+                      <div className="flex items-center gap-4 mb-8 text-sm font-sans font-bold opacity-60 bg-stone-100/10 w-fit px-4 py-2 rounded-lg border border-stone-200/20">
+                        <span className="flex items-center gap-1">✍️ {article.author}</span>
+                        <span className="opacity-30">|</span>
+                        <span className="flex items-center gap-1">📅 {article.date}</span>
+                      </div>
+
+                      <div className="prose prose-stone max-w-none">
+                        <div className="columns-1 md:columns-2 gap-10 text-xl leading-relaxed text-justify">
+                          {article.content.map((p: string, i: number) => (
+                            <p key={i} className={`mb-6 ${i === 0 ? `first-letter:text-6xl first-letter:font-black ${textColor} first-letter:mr-3 first-letter:float-left` : ''}`}>
+                              {p}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                    </article>
+                  )}
+                </div>
               );
             })}
           </div>

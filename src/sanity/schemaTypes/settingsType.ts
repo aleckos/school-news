@@ -26,6 +26,12 @@ export const settingsType = defineType({
       initialValue: 1,
     }),
     defineField({
+      name: 'issueDate',
+      title: 'Ημερομηνία Τεύχους (Κείμενο)',
+      type: 'string',
+      description: 'π.χ. Κυριακή 8 Φεβρουαρίου 2026',
+    }),
+    defineField({
       name: 'theme',
       title: 'Θέμα Εμφάνισης (Global Template)',
       type: 'string',
