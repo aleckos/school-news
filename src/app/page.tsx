@@ -86,12 +86,14 @@ export default async function Home() {
                 <div key={article._id || article.id}>
                   {/* Article Image - Αν υπάρχει */}
                   {article.image && (
-                    <div className="mb-6 relative h-[400px] w-full overflow-hidden rounded-xl shadow-lg border-4 border-white">
+                    <div className="mb-8 relative w-full h-[300px] md:h-[450px] overflow-hidden rounded-2xl shadow-md border border-stone-200">
                       <Image 
                         src={urlFor(article.image).url()} 
-                        alt={article.title}
+                        alt={article.title || "Εικόνα άρθρου"}
                         fill
-                        className="object-cover transition-transform hover:scale-105 duration-500"
+                        sizes="(max-width: 768px) 100vw, 800px"
+                        className="object-cover transition-transform hover:scale-105 duration-700"
+                        priority={index === 0}
                       />
                     </div>
                   )}
