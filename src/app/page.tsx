@@ -182,7 +182,7 @@ export default async function Home() {
                       <div className="prose prose-stone max-w-none">
                         <div className="columns-1 md:columns-2 gap-10 text-xl leading-relaxed text-justify">
                           {article.content.map((p: string, i: number) => (
-                            <p key={i} className={`mb-6 ${i === 0 ? `first-letter:text-6xl first-letter:font-black ${textColor} first-letter:mr-3 first-letter:float-left` : ''}`}>
+                            <p key={i} className={`mb-6 ${i === 0 ? `first-letter:text-6xl first-letter:font-black first-letter:${textColor} first-letter:mr-3 first-letter:float-left` : ''}`}>
                               {p}
                             </p>
                           ))}
